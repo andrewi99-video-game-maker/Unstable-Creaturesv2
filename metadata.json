@@ -1,0 +1,6 @@
+{
+  "name": "Unstable Creatures",
+  "description": "3D physics party brawler with upgraded PBR visuals, escalating arena hazards, local split-screen, online multiplayer, and full Xbox controller support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

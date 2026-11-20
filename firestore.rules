@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default deny everything
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUsernameKey(id) {
+      return id is string && id.size() >= 3 && id.size() <= 14 && id.matches('^[a-z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['uid', 'username', 'savedUsers', 'friends', 'reqIn', 'reqOut', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'username', 'savedUsers', 'friends', 'reqIn', 'reqOut', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid == request.auth.uid
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.username is string
+        && data.username.size() >= 3
+        && data.username.size() <= 14
+        && data.username.matches('^[A-Za-z0-9_-]{3,14}$')
+        && data.savedUsers is list
+        && data.savedUsers.size() <= 8
+        && (data.savedUsers.size() == 0 || (data.savedUsers[0] is string && data.savedUsers[0].size() >= 2 && data.savedUsers[0].size() <= 14))
+        && data.friends is list
+        && data.friends.size() <= 50
+        && (data.friends.size() == 0 || (data.friends[0] is string && data.friends[0].size() >= 3 && data.friends[0].size() <= 14))
+        && data.reqIn is list
+        && data.reqIn.size() <= 50
+        && (data.reqIn.size() == 0 || (data.reqIn[0] is string && data.reqIn[0].size() >= 3 && data.reqIn[0].size() <= 14))
+        && data.reqOut is list
+        && data.reqOut.size() <= 50
+        && (data.reqOut.size() == 0 || (data.reqOut[0] is string && data.reqOut[0].size() >= 3 && data.reqOut[0].size() <= 14))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPublicProfile(data, key) {
+      return data.keys().hasAll(['uid', 'username', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'username', 'updatedAt'])
+        && data.uid is string
+        && data.uid == request.auth.uid
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.username is string
+        && data.username.size() >= 3
+        && data.username.size() <= 14
+        && data.username.matches('^[A-Za-z0-9_-]{3,14}$')
+        && data.username.lower() == key
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserAccount(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserAccount(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'savedUsers', 'friends', 'reqIn', 'reqOut', 'updatedAt']);
+      allow delete: if isValidId(userId) && isOwner(userId);
+    }
+
+    match /publicProfiles/{usernameLower} {
+      allow get: if isValidUsernameKey(usernameLower) && isSignedIn();
+      allow list: if false;
+      allow create: if isValidUsernameKey(usernameLower)
+        && isVerified()
+        && isValidPublicProfile(incoming(), usernameLower)
+        && incoming().updatedAt == request.time;
+      allow update: if isValidUsernameKey(usernameLower)
+        && isVerified()
+        && existing().uid == request.auth.uid
+        && isValidPublicProfile(incoming(), usernameLower)
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'updatedAt']);
+      allow delete: if isValidUsernameKey(usernameLower)
+        && isVerified()
+        && existing().uid == request.auth.uid;
+    }
+  }
+}

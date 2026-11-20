@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Cloud-saved player account, active username, remembered usernames, and friends lists synchronized across devices.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the account owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "username": {
+          "type": "string",
+          "description": "Player's active in-game username.",
+          "minLength": 3,
+          "maxLength": 14,
+          "pattern": "^[A-Za-z0-9_-]{3,14}$"
+        },
+        "savedUsers": {
+          "type": "array",
+          "description": "Up to 8 remembered display usernames for quick switching across devices."
+        },
+        "friends": {
+          "type": "array",
+          "description": "Up to 50 accepted friend usernames (lowercase)."
+        },
+        "reqIn": {
+          "type": "array",
+          "description": "Up to 50 incoming friend request usernames (lowercase)."
+        },
+        "reqOut": {
+          "type": "array",
+          "description": "Up to 50 outgoing friend request usernames (lowercase)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the cloud account was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the cloud account was last updated."
+        }
+      },
+      "required": ["uid", "username", "savedUsers", "friends", "reqIn", "reqOut", "createdAt", "updatedAt"]
+    },
+    "PublicProfile": {
+      "title": "PublicProfile",
+      "description": "Non-PII username reservation record mapping a lowercase username to its owning UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID that owns this username.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "username": {
+          "type": "string",
+          "description": "Display casing of the claimed username.",
+          "minLength": 3,
+          "maxLength": 14,
+          "pattern": "^[A-Za-z0-9_-]{3,14}$"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when this username claim was created or updated."
+        }
+      },
+      "required": ["uid", "username", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Owner-isolated cloud account storing username, remembered usernames, and friend lists."
+    },
+    "/publicProfiles/{usernameLower}": {
+      "schema": { "$ref": "#/entities/PublicProfile" },
+      "description": "Public username uniqueness registry without any PII fields."
+    }
+  }
+}
